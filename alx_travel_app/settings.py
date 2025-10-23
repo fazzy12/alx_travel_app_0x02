@@ -44,6 +44,9 @@ DEBUG = env('DEBUG')
 
 ALLOWED_HOSTS = env('ALLOWED_HOSTS')
 
+# Load Chapa Secret Key from .env
+CHAPA_SECRET_KEY = env('CHAPA_SECRET_KEY')
+
 
 # Application definition
 

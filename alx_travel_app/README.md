@@ -47,6 +47,17 @@ alx_travel_app/
 - **comment**: Review text
 - **created_at**: Timestamp
 
+### 4. Payment Model (New)
+- **payment_id**: Primary Key (UUID)
+- **booking_id**: Foreign Key to Booking (OneToOne)
+- **user_id**: Foreign Key to User
+- **amount**: Decimal price
+- **tx_ref**: Unique transaction reference (used for Chapa)
+- **chapa_transaction_id**: Transaction ID from Chapa
+- **status**: Enum (pending, completed, failed, canceled)
+- **checkout_url**: URL to redirect user for payment
+- **created_at/updated_at**: Timestamps
+
 ## Serializers
 
 ### ListingSerializer
@@ -94,6 +105,17 @@ python manage.py seed --help
 - **Listings**: Properties in various US cities with realistic descriptions and pricing
 - **Bookings**: Reservations with random dates and calculated pricing
 - **Reviews**: Property reviews with ratings and comments
+
+## Chapa Payment Integration (Task 0x02)
+
+The application is integrated with the **Chapa Payment Gateway** for handling booking payments.
+
+### Setup and Credentials
+
+1. Create a `.env` file and set the `CHAPA_SECRET_KEY` obtained from the Chapa developer portal. (The provided key is a test key: `CHASECK_TEST-2EGfvykfmNFpwwlUZCwmpW5IugMzKY23`)
+2. Ensure the `requests` library is installed (`pip install requests`).
+3. **Celery**: Celery is included in the requirements and is used to asynchronously send a confirmation email upon successful payment, which requires a separate Celery broker setup (e.g., RabbitMQ or Redis).
+
 
 ## Installation and Setup
 
@@ -144,9 +166,21 @@ The models follow the provided AirBnB database specification with appropriate:
 **Author**: ALX Student
 
 
-## API Endpoints (Task 0x01: CRUD Implementation)
+### Payment Workflow
 
-The following RESTful API endpoints have been implemented using Django REST Framework ViewSets and Routers, and are automatically documented via Swagger at `/swagger/` and Redoc at `/redoc/`.
+1.  A user sends a `POST` request to the `/api/bookings/` endpoint to create a booking.
+2.  The application creates the `Booking` record and an initial `Payment` record with a `pending` status.
+3.  The application calls the Chapa `/initialize` API using the `CHAPA_SECRET_KEY`.
+4.  The API response returns the `Booking` details and a `payment_link` (the `checkout_url` from Chapa).
+5.  The user is redirected to the `payment_link` to complete the transaction on Chapa's platform.
+6.  Upon completion, Chapa redirects the user to the configured **callback URL**: `/api/payments/{tx_ref}/verify/`.
+7.  The application calls the Chapa `/verify` API to confirm the transaction.
+8.  On successful verification, the `Payment` status is set to `completed`, the `Booking` status is set to `confirmed`, and an asynchronous confirmation email is triggered (via a mock Celery task).
+9.  If verification fails, the statuses are updated to `failed` or `canceled`.
+
+## API Endpoints
+
+The following RESTful API endpoints have been implemented using Django REST Framework ViewSets and Routers.
 
 | Resource | Method | Endpoint | Description | Authentication |
 | :--- | :--- | :--- | :--- | :--- |
@@ -155,5 +189,8 @@ The following RESTful API endpoints have been implemented using Django REST Fram
 | **Listing Detail**| `GET` | `/api/listings/{id}/` | Retrieve a specific listing. | None (AllowAny) |
 | **Listing Detail**| `PUT`/`PATCH`/`DELETE`| `/api/listings/{id}/` | Update or Delete a listing. | Required (IsAuthenticated) |
 | **Bookings** | `GET` | `/api/bookings/` | List all bookings. | Required (IsAuthenticated) |
-| **Bookings** | `POST` | `/api/bookings/` | Create a new booking (Guest). | Required (IsAuthenticated) |
+| **Bookings** | `POST` | `/api/bookings/` | **Create a new booking and initiate Chapa payment.** Returns booking details and Chapa checkout link. | Required (IsAuthenticated) |
 | **Booking Detail**| `GET`/`PUT`/`PATCH`/`DELETE`| `/api/bookings/{id}/` | Manage a specific booking. | Required (IsAuthenticated) |
+| **Payments** | `GET` | `/api/payments/` | List all payment records for the authenticated user. | Required (IsAuthenticated) |
+| **Payment Detail**| `GET` | `/api/payments/{tx_ref}/` | Retrieve a specific payment record by transaction reference. | Required (IsAuthenticated) |
+| **Payment Verify**| `GET` | `/api/payments/{tx_ref}/verify/` | **Callback URL**: Verifies payment status with Chapa and updates Payment/Booking status. | None (AllowAny, internal verification check) |
