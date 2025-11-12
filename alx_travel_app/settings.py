@@ -15,6 +15,19 @@ from pathlib import Path
 
 # Initialize environment variables
 env = environ.Env(
+    
+    CELERY_BROKER_URL=(str, 'amqp://guest:guest@localhost:5672//'),
+    
+    
+    # New: Email Configuration (using console backend for development/testing)
+    EMAIL_BACKEND=(str, 'django.core.mail.backends.console.EmailBackend'), 
+    EMAIL_HOST=(str, 'smtp.example.com'),
+    EMAIL_PORT=(int, 587),
+    EMAIL_USE_TLS=(bool, True),
+    EMAIL_HOST_USER=(str, ''),
+    EMAIL_HOST_PASSWORD=(str, ''),
+    DEFAULT_FROM_EMAIL=(str, 'support@alxtravelapp.com'),
+    
     # Set casting and default values
     DEBUG=(bool, False),
     ALLOWED_HOSTS=(list, []),
@@ -83,6 +96,23 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+
+CELERY_BROKER_URL = env('CELERY_BROKER_URL')
+CELERY_RESULT_BACKEND = CELERY_BROKER_URL
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
+
+# --- NEW EMAIL CONFIGURATION ---
+EMAIL_BACKEND = env('EMAIL_BACKEND')
+EMAIL_HOST = env('EMAIL_HOST')
+EMAIL_PORT = env('EMAIL_PORT')
+EMAIL_USE_TLS = env('EMAIL_USE_TLS')
+EMAIL_HOST_USER = env('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
+DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL')
 
 ROOT_URLCONF = 'alx_travel_app.urls'
 

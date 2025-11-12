@@ -7,6 +7,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import Listing, Booking, Payment
 from .serializers import ListingSerializer, BookingSerializer, PaymentSerializer
+from .tasks import send_confirmation_email_task
 from django.shortcuts import get_object_or_404
 from django.db import transaction
 
@@ -15,20 +16,8 @@ from django.db import transaction
 # Setup logger
 logger = logging.getLogger(__name__)
 
-# --- Celery Placeholder Task ---
 
-# NOTE: This function is a placeholder for a real Celery task defined in tasks.py
-# In a real app, it would be decorated with `@shared_task` and called with `.delay()`
-def send_confirmation_email(booking_id, user_email):
-    """Mock function to simulate a Celery task for sending a confirmation email."""
-    try:
-        booking = Booking.objects.get(booking_id=booking_id)
-        logger.info(f"✅ CONFIRMATION EMAIL: Sending confirmation email to {user_email} for booking {booking_id}")
-        # Add real email sending logic here
-        return True
-    except Booking.DoesNotExist:
-        logger.error(f"❌ CONFIRMATION EMAIL FAILED: Booking {booking_id} not found.")
-        return False
+
     
 # --- Chapa API Wrapper Constants ---
 CHAPA_API_URL = "https://api.chapa.co/v1"
@@ -228,10 +217,8 @@ class PaymentViewSet(viewsets.GenericViewSet,
             booking = payment.booking_id
             booking.status = 'confirmed'
             booking.save()
-            
-            # 3. Send Confirmation Email (Async task)
-            # In a real app: send_confirmation_email.delay(booking.booking_id, booking.user_id.email)
-            send_confirmation_email(booking.booking_id, booking.user_id.email)
+                
+            send_confirmation_email_task.delay(str(booking.booking_id), booking.user_id.email)
 
             return Response({
                 "status": "Payment completed and booking confirmed.",
